@@ -1,0 +1,2 @@
+langchain~=0.3.25
+psycopg2~=2.9.10
