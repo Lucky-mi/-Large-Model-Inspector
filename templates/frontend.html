@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能督学</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chat-header {
+            padding: 20px 25px;
+            text-align: center;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            background: linear-gradient(to bottom, #f8f9ff, #ffffff);
+            position: relative;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            border-radius: 3px;
+        }
+
+        .message {
+            display: flex;
+            margin-bottom: 25px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.ai {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 16px 20px;
+            border-radius: 20px;
+            line-height: 1.6;
+            font-size: 15px;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            word-wrap: break-word;
+        }
+
+        .user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e8f0fe;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-area {
+            padding: 25px;
+            background: white;
+            border-top: 1px solid #e8f0fe;
+        }
+
+        .input-container {
+            display: flex;
+            border: 2px solid #e8f0fe;
+            border-radius: 25px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .input-container:focus-within {
+            border-color: #4facfe;
+            box-shadow: 0 4px 25px rgba(79, 172, 254, 0.2);
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            padding: 16px 20px;
+            resize: none;
+            outline: none;
+            font-family: inherit;
+            font-size: 15px;
+            min-height: 24px;
+            max-height: 150px;
+            background: transparent;
+            color: #333;
+        }
+
+        textarea::placeholder {
+            color: #999;
+        }
+
+        .send-btn, .change-password-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .send-btn:hover, .change-password-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .send-btn:active, .change-password-btn:active {
+            transform: translateY(0);
+        }
+
+        .suggestions {
+            margin: 20px 25px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+            border-radius: 15px;
+            border: 1px solid #e8f0fe;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .suggestions-header {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #4facfe;
+            font-size: 16px;
+        }
+
+        .suggestions-container {
+            max-height: 150px;
+            overflow-y: auto;
+            border-radius: 10px;
+            background: white;
+            padding: 10px;
+            border: 1px solid #e8f0fe;
+        }
+
+        .suggestions-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .suggestions-container::-webkit-scrollbar-track {
+            background: #f8f9ff;
+            border-radius: 2px;
+        }
+
+        .suggestions-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            border-radius: 2px;
+        }
+
+        .suggestions ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .suggestions li {
+            cursor: pointer;
+            padding: 12px 16px;
+            color: #667eea;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            transition: all 0.2s ease;
+            font-size: 14px;
+            line-height: 1.4;
+            border: 1px solid transparent;
+        }
+
+        .suggestions li:hover {
+            background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 100%);
+            border-color: #4facfe;
+            transform: translateX(5px);
+        }
+
+        .suggestions li:last-child {
+            margin-bottom: 0;
+        }
+
+        .login-container, .change-password-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box, .change-password-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .login-box h2, .change-password-box h2 {
+            margin: 0 0 30px;
+            color: #333;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .login-box input, .change-password-box input {
+            width: 100%;
+            padding: 16px 20px;
+            margin: 12px 0;
+            border: 2px solid #e8f0fe;
+            border-radius: 12px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .login-box input:focus, .change-password-box input:focus {
+            outline: none;
+            border-color: #4facfe;
+            background: white;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.2);
+        }
+
+        .login-box button, .change-password-box button {
+            margin: 15px 8px 0;
+            padding: 16px 30px;
+            border-radius: 12px;
+            font-size: 15px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            height: 20px;
+            gap: 4px;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 50%;
+            animation: typing 1.2s infinite ease-in-out;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 100% {
+                transform: translateY(0) scale(1);
+                opacity: 0.7;
+            }
+            50% {
+                transform: translateY(-8px) scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .chat-container {
+                margin: 10px;
+                border-radius: 15px;
+                height: calc(100vh - 20px);
+            }
+
+            .chat-header {
+                padding: 15px 20px;
+            }
+
+            .chat-header h2 {
+                font-size: 20px;
+            }
+
+            .chat-messages {
+                padding: 20px 15px;
+            }
+
+            .message-content {
+                max-width: 85%;
+                padding: 14px 16px;
+                font-size: 14px;
+            }
+
+            .chat-input-area {
+                padding: 20px 15px;
+            }
+
+            .suggestions {
+                margin: 15px 15px 0;
+                padding: 15px;
+            }
+
+            .login-box, .change-password-box {
+                width: 90%;
+                max-width: 350px;
+                padding: 30px 25px;
+            }
+        }
+
+        /* 深色模式媒体查询 */
+        @media (prefers-color-scheme: dark) {
+            .chat-container {
+                background: rgba(30, 30, 30, 0.95);
+            }
+
+            .chat-messages {
+                background: linear-gradient(to bottom, #1a1a1a, #2a2a2a);
+            }
+
+            .ai .message-content {
+                background: #333;
+                color: #e0e0e0;
+                border-color: #444;
+            }
+
+            .suggestions {
+                background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+                border-color: #444;
+            }
+
+            .suggestions-header {
+                color: #4facfe;
+            }
+
+            .suggestions-container {
+                background: #333;
+                border-color: #444;
+            }
+
+            .suggestions li {
+                color: #4facfe;
+            }
+
+            .suggestions li:hover {
+                background: linear-gradient(135deg, #2a3a4a 0%, #3a4a5a 100%);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container" id="login-container">
+        <div class="login-box">
+            <h2>🎓 智能督学</h2>
+            <input type="text" id="user-id" placeholder="请输入学生ID（如 202311081040）">
+            <input type="password" id="password" placeholder="请输入密码（初始密码：123）">
+            <button class="send-btn" onclick="login()">登录</button>
+        </div>
+    </div>
+
+    <div class="change-password-container" id="change-password-container">
+        <div class="change-password-box">
+            <h2>🔒 修改密码</h2>
+            <input type="password" id="old-password" placeholder="请输入旧密码">
+            <input type="password" id="new-password" placeholder="请输入新密码">
+            <button class="send-btn" onclick="changePassword()">确认修改</button>
+            <button class="send-btn" onclick="cancelChangePassword()">取消</button>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chat-container" style="display: none;">
+        <div class="chat-header">
+            <h2>🤖 智能督学 - <span id="user-id-display"></span></h2>
+            <button class="change-password-btn" onclick="showChangePassword()">修改密码</button>
+        </div>
+
+        <div class="chat-messages" id="chat-messages">
+            <div class="message ai">
+                <div class="message-content">
+                    你好！我是数据库系统智能督学助教，有什么可以帮您的吗？✨
+                </div>
+            </div>
+        </div>
+
+        <div class="suggestions" id="suggestions">
+            <div class="suggestions-header">💡 建议问题：</div>
+            <div class="suggestions-container">
+                <ul id="suggestions-list"></ul>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <div class="input-container">
+                <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
+                <button class="send-btn" id="send-btn">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const userInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const suggestionsList = document.getElementById('suggestions-list');
+            const loginContainer = document.getElementById('login-container');
+            const chatContainer = document.getElementById('chat-container');
+            const changePasswordContainer = document.getElementById('change-password-container');
+            const userIdInput = document.getElementById('user-id');
+            const passwordInput = document.getElementById('password');
+            const oldPasswordInput = document.getElementById('old-password');
+            const newPasswordInput = document.getElementById('new-password');
+            const userIdDisplay = document.getElementById('user-id-display');
+
+            // 模拟localStorage (在artifact中使用内存存储)
+            let memoryStorage = {};
+            const storage = {
+                getItem: (key) => memoryStorage[key] || null,
+                setItem: (key, value) => memoryStorage[key] = value,
+                removeItem: (key) => delete memoryStorage[key]
+            };
+
+            // 全局userId变量
+            let userId = storage.getItem('userId');
+
+            // 检查是否已登录
+            if (userId) {
+                showChatInterface(userId);
+            } else {
+                loginContainer.style.display = 'flex';
+            }
+
+            // 登录函数
+            window.login = async function() {
+                const inputUserId = userIdInput.value.trim();
+                const password = passwordInput.value.trim();
+                if (!inputUserId || !password) {
+                    alert('请输入学生ID和密码！');
+                    return;
+                }
+                try {
+                    const response = await fetch('http://localhost:5000/api/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_id: inputUserId, password: password })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        userId = inputUserId; // 更新全局userId
+                        storage.setItem('userId', inputUserId);
+                        showChatInterface(inputUserId);
+                    } else {
+                        alert(`登录失败: ${data.error}`);
+                    }
+                } catch (error) {
+                    console.error('登录失败:', error);
+                    alert('无法连接到服务器，请稍后再试。');
+                }
+            };
+
+            // 显示修改密码界面
+            window.showChangePassword = function() {
+                changePasswordContainer.style.display = 'flex';
+                chatContainer.style.display = 'none';
+                oldPasswordInput.value = '';
+                newPasswordInput.value = '';
+            };
+
+            // 取消修改密码
+            window.cancelChangePassword = function() {
+                changePasswordContainer.style.display = 'none';
+                chatContainer.style.display = 'flex';
+            };
+
+            // 修改密码
+            window.changePassword = async function() {
+                const oldPassword = oldPasswordInput.value.trim();
+                const newPassword = newPasswordInput.value.trim();
+                if (!oldPassword || !newPassword) {
+                    alert('请输入旧密码和新密码！');
+                    return;
+                }
+                try {
+                    const response = await fetch('http://localhost:5000/api/change_password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ user_id: userId, old_password: oldPassword, new_password: newPassword })
+                    });
+                    const data = await response.json();
+                    if (data.success) {
+                        alert('密码修改成功！');
+                        changePasswordContainer.style.display = 'none';
+                        chatContainer.style.display = 'flex';
+                    } else {
+                        alert(`密码修改失败: ${data.error}`);
+                    }
+                } catch (error) {
+                    console.error('修改密码失败:', error);
+                    alert('无法连接到服务器，请稍后再试。');
+                }
+            };
+
+            // 显示聊天界面
+            function showChatInterface(currentUserId) {
+                loginContainer.style.display = 'none';
+                chatContainer.style.display = 'flex';
+                userId = currentUserId; // 确保全局userId正确设置
+                userIdDisplay.textContent = `学生ID: ${currentUserId}`;
+                loadSuggestions();
+            }
+
+            // 发送消息函数
+            async function sendMessage() {
+                const message = userInput.value.trim();
+                if (message === '') return;
+
+                addMessage(message, 'user');
+                userInput.value = '';
+                autoResize();
+
+                try {
+                    const typingIndicator = addTypingIndicator();
+                    const response = await fetch('http://localhost:5000/api/query', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            question: message,
+                            user_id: userId,
+                            include_sql: true,
+                            include_raw_results: false
+                        })
+                    });
+
+                    chatMessages.removeChild(typingIndicator);
+
+                    const data = await response.json();
+                    if (data.success) {
+                        let reply = data.answer;
+                        if (data.sql) {
+                            reply += `\n\nSQL: ${data.sql}`;
+                        }
+                        addMessage(reply, 'ai');
+
+                        if (data.suggestions) {
+                            suggestionsList.innerHTML = data.suggestions.map(s => `<li onclick="fillInput('${s}')">${s}</li>`).join('');
+                        }
+                    } else {
+                        addMessage(`错误: ${data.error} (${data.error_code})`, 'ai');
+                    }
+                } catch (error) {
+                    console.error('请求失败:', error);
+                    addMessage('抱歉，无法连接到服务器，请稍后再试。', 'ai');
+                }
+            }
+
+            // 填充输入框
+            window.fillInput = function(question) {
+                userInput.value = question;
+                userInput.focus();
+                autoResize();
+            };
+
+            // 添加消息到聊天界面
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}`;
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                contentDiv.textContent = text;
+                messageDiv.appendChild(contentDiv);
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            // 添加"正在输入"指示器
+            function addTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message ai';
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content typing-indicator';
+                contentDiv.innerHTML = '<span></span><span></span><span></span>';
+                typingDiv.appendChild(contentDiv);
+                chatMessages.appendChild(typingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                return typingDiv;
+            }
+
+            // 加载建议问题
+            async function loadSuggestions() {
+                try {
+                    const response = await fetch('http://localhost:5000/api/suggestions');
+                    const data = await response.json();
+                    if (data.success) {
+                        suggestionsList.innerHTML = Object.values(data.suggestions)
+                            .flat()
+                            .map(s => `<li onclick="fillInput('${s}')">${s}</li>`)
+                            .join('');
+                    }
+                } catch (error) {
+                    console.error('加载建议失败:', error);
+                }
+            }
+
+            // 自动调整输入框高度
+            function autoResize() {
+                userInput.style.height = 'auto';
+                userInput.style.height = Math.min(userInput.scrollHeight, 150) + 'px';
+            }
+
+            // 点击发送按钮
+            sendBtn.addEventListener('click', sendMessage);
+
+            // 按 Enter 键发送消息
+            userInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // 自动调整输入框高度
+            userInput.addEventListener('input', autoResize);
+
+            // 回车键登录
+            passwordInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    window.login();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -6,7 +6,25 @@ from datetime import datetime
 import traceback
 import psycopg2
 from ai_sql_generator import AIQueryProcessor
+from flask import Flask, render_template, request
 
+app = Flask(__name__)
+CORS(app)  # 允许跨域请求
+# ✅ 首页路由：访问网页显示前端 HTML
+@app.route('/')
+def index():
+    return render_template('frontend.html')
+
+# ✅ 问答提交接口（你也可以改名，比如 /query 或 /submit）
+@app.route('/ask', methods=['POST'])
+def ask():
+    user_question = request.form['question']
+    # 🔧 这里你调用你已有的大模型推理代码：
+    # answer = 调用你的LLM函数(user_question)
+    answer = "大模型返回的答案（测试占位）"
+
+    # 👇把结果塞回页面（这个 answer 会在 HTML 中显示）
+    return render_template('frontend.html', answer=answer)
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -15,8 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 创建 Flask 应用
-app = Flask(__name__)
-CORS(app)  # 允许跨域请求
+
 
 
 # 全局配置
