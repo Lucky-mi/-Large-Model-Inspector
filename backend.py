@@ -5,38 +5,23 @@ import logging
 from datetime import datetime
 import traceback
 import psycopg2
-from ai_sql_generator import AIQueryProcessor
-from flask import Flask, render_template, request
+from enhanced_ai_processor import AIQueryProcessor, QueryType  # 修正导入，确保与 enhanced_ai_processor.py 一致
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域请求
-# ✅ 首页路由：访问网页显示前端 HTML
-@app.route('/')
-def index():
-    return render_template('frontend.html')
+CORS(app)  # Allow cross-domain requests
 
-# ✅ 问答提交接口（你也可以改名，比如 /query 或 /submit）
-@app.route('/ask', methods=['POST'])
-def ask():
-    user_question = request.form['question']
-    # 🔧 这里你调用你已有的大模型推理代码：
-    # answer = 调用你的LLM函数(user_question)
-    answer = "大模型返回的答案（测试占位）"
-
-    # 👇把结果塞回页面（这个 answer 会在 HTML 中显示）
-    return render_template('frontend.html', answer=answer)
-# 配置日志
+# Configure logging with file output for better debugging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('backend.log'),  # Save logs to a file
+        logging.StreamHandler()  # Also print logs to console
+    ]
 )
 logger = logging.getLogger(__name__)
 
-# 创建 Flask 应用
-
-
-
-# 全局配置
+# Global configuration
 class Config:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     DATABASE_CONFIG = {
@@ -46,25 +31,55 @@ class Config:
         'user': os.getenv('DB_USER', 'python01_user51'),
         'password': os.getenv('DB_PASSWORD', 'python01_user51@123')
     }
-    MODEL_NAME = os.getenv('MODEL_NAME', 'gpt-3.5-turbo')
+    MODEL_NAME = os.getenv('MODEL_NAME', 'gpt-4o')  # Align with enhanced_ai_processor.py
 
+# Validate environment variables
+def validate_config():
+    """Validate required environment variables and database connectivity"""
+    errors = []
+    if not Config.OPENAI_API_KEY:
+        errors.append("OPENAI_API_KEY is not set in environment variables")
 
-# 初始化 AI 查询处理器
+    # Validate database configuration
+    required_db_keys = ['host', 'port', 'database', 'user', 'password']
+    for key in required_db_keys:
+        if not Config.DATABASE_CONFIG.get(key):
+            errors.append(f"Database config missing: {key}")
+
+    if errors:
+        return False, errors
+
+    # Test database connection
+    try:
+        conn = psycopg2.connect(**Config.DATABASE_CONFIG)
+        conn.close()
+        logger.info("Database connection successful")
+        return True, None
+    except Exception as e:
+        errors.append(f"Database connection failed: {str(e)}")
+        return False, errors
+
+# Initialize AIQueryProcessor with detailed error handling
+ai_processor = None
 try:
+    is_valid, config_errors = validate_config()
+    if not is_valid:
+        logger.error("Configuration validation failed: %s", "; ".join(config_errors))
+        raise ValueError("Invalid configuration: " + "; ".join(config_errors))
+
     ai_processor = AIQueryProcessor(
         openai_api_key=Config.OPENAI_API_KEY,
         db_config=Config.DATABASE_CONFIG,
         model=Config.MODEL_NAME
     )
-    logger.info("AI查询处理器初始化成功")
+    logger.info("AIQueryProcessor initialized successfully")
 except Exception as e:
-    logger.error(f"AI查询处理器初始化失败: {str(e)}")
+    logger.error(f"AIQueryProcessor initialization failed: {str(e)}\n{traceback.format_exc()}")
     ai_processor = None
 
-
-# 验证用户 ID（更新为使用新的表结构）
+# Validate user ID
 def validate_user(user_id):
-    """验证用户是否存在"""
+    """Validate if the user exists in the database"""
     try:
         conn = psycopg2.connect(**Config.DATABASE_CONFIG)
         cursor = conn.cursor()
@@ -74,27 +89,32 @@ def validate_user(user_id):
         conn.close()
         return result is not None
     except Exception as e:
-        logger.error(f"验证用户失败: {str(e)}")
+        logger.error(f"User validation failed: {str(e)}")
         return False
-
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """健康检查接口"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'ai_processor_ready': ai_processor is not None
-    })
+    """Health check endpoint"""
+    db_status = "connected"
+    try:
+        conn = psycopg2.connect(**Config.DATABASE_CONFIG)
+        conn.close()
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
 
+    return jsonify({
+        'status': 'healthy' if ai_processor else 'unhealthy',
+        'timestamp': datetime.now().isoformat(),
+        'ai_processor_ready': ai_processor is not None,
+        'database_status': db_status
+    })
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """登录验证（简化版，只验证学生ID是否存在）"""
+    """Login validation (simplified, checks student ID existence)"""
     try:
         data = request.get_json()
         user_id = data.get('user_id')
-        # 注意：这里简化了验证逻辑，实际应用中应该有密码验证
         if not user_id:
             return jsonify({
                 'success': False,
@@ -122,7 +142,6 @@ def login():
             'error_code': 'LOGIN_ERROR'
         }), 500
 
-
 @app.route('/api/query', methods=['POST'])
 def process_query():
     """
@@ -139,7 +158,7 @@ def process_query():
         if not ai_processor:
             return jsonify({
                 'success': False,
-                'error': 'AI查询服务暂时不可用',
+                'error': 'AI查询服务暂时不可用。请检查服务器日志以获取详细信息。',
                 'error_code': 'SERVICE_UNAVAILABLE'
             }), 503
 
@@ -193,7 +212,6 @@ def process_query():
 
             if result['query_type']:
                 try:
-                    from ai_sql_generator import QueryType
                     query_type_enum = QueryType(result['query_type'])
                     suggestions = ai_processor.get_conversation_suggestions(query_type_enum)
                     response['suggestions'] = suggestions
@@ -222,7 +240,6 @@ def process_query():
             'error_code': 'INTERNAL_ERROR',
             'timestamp': datetime.now().isoformat()
         }), 500
-
 
 @app.route('/api/suggestions', methods=['GET'])
 def get_suggestions():
@@ -274,7 +291,59 @@ def get_suggestions():
             'error': '获取建议失败',
             'error_code': 'SUGGESTIONS_ERROR'
         }), 500
+@app.route('/api/change_password', methods=['POST'])
+def change_password():
+    """Change user password"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        old_password = data.get('old_password')
+        new_password = data.get('new_password')
 
+        if not user_id or not old_password or not new_password:
+            return jsonify({
+                'success': False,
+                'error': '学生ID、旧密码和新密码不能为空',
+                'error_code': 'EMPTY_INPUT'
+            }), 400
 
+        # 验证用户和旧密码
+        conn = psycopg2.connect(**Config.DATABASE_CONFIG)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT student_id FROM students WHERE student_id = %s AND password = %s",
+            (user_id, old_password)
+        )
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({
+                'success': False,
+                'error': '旧密码错误或学生ID不存在',
+                'error_code': 'INVALID_CREDENTIALS'
+            }), 400
+
+        # 更新密码
+        cursor.execute(
+            "UPDATE students SET password = %s WHERE student_id = %s",
+            (new_password, user_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        logger.info(f"密码修改成功: {user_id}")
+        return jsonify({
+            'success': True,
+            'message': '密码修改成功'
+        })
+
+    except Exception as e:
+        logger.error(f"密码修改失败: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({
+            'success': False,
+            'error': f'密码修改失败: {str(e)}',
+            'error_code': 'CHANGE_PASSWORD_ERROR'
+        }), 500
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
