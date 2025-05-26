@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 import traceback
 import psycopg2
-from enhanced_ai_processor import AIQueryProcessor, QueryType  # 修正导入，确保与 enhanced_ai_processor.py 一致
+from ai_sql_generator import AIQueryProcessor, QueryType  # 修正导入，确保与 enhanced_ai_processor.py 一致
 
 app = Flask(__name__)
 CORS(app)  # Allow cross-domain requests
